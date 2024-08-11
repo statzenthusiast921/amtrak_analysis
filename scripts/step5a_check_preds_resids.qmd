@@ -1,0 +1,394 @@
+---
+title: "Amtrak Predictions and Residuals Report"
+format: html
+editor: visual
+date_created: 2024-08-10
+date_last_updated: 2024-08-10
+---
+
+## Purpose
+
+The purpose of this report is to assess the validity of the predictions. The report works by loading the ridership data, processing it, fitting statistical models, and generating forecasts for each Amtrak station.
+
+The predictions are calculated at the individual station level and then aggregated up to the parent route level.
+
+```{r load_and_process_data, include = FALSE, echo = FALSE}
+generate_ridership_reports <- function(proceed = TRUE){
+  path <- '/Users/jonzimmerman/Desktop/Data Projects/Amtrak/scripts/'
+  source(paste0(path,'step1_amtrak_data_prep.R'))
+  source(paste0(path,'step2_amtrak_define_recipes_workflows.R'))
+  source(paste0(path,'step3_amtrak_fit_models.R'))
+  source(paste0(path,'step4_amtrak_generate_forecasts.R'))
+  
+  if (proceed) {
+    message('Step 5 not ready yet')
+    #source(paste0(path,'step5b_generate_reports.R'))
+  }
+}
+generate_ridership_reports(FALSE)
+
+```
+
+## Business Line 1/4 Forecasts: Long Distance
+
+The Long Distance business line contains 234 individual Amtrak stations and 12 parent routes.
+
+```{r put_ld_preds_df_together, include = FALSE, echo = FALSE}
+message('Make predictions dataset by pulling out predictions')
+
+ld_preds_list <-list()
+
+for (i in 1:num_of_ld_stations){
+  ld_preds_list[[i]] <- df_ld_nest[[11]][[i]] |>
+    mutate(station_name = df_ld_nest$station_name[[i]])
+}
+
+ld_preds_df <- bind_rows(ld_preds_list)
+
+#----- Bring in the parent routes and business lines
+extra_info <- df |>
+  select(station_name, parent_route, business_line) |>
+  distinct()
+
+
+ld_routes <- inner_join(
+  ld_preds_df,
+  extra_info,
+  by = 'station_name'
+) |>
+  group_by(.index,.key, parent_route) |>
+  summarise(rides = sum(.value)) |>
+  arrange(parent_route,.index, .key)
+```
+
+## 
+
+```{r check_out_ld_predictions, echo = FALSE}
+ggplot(data = ld_routes, aes(x = .index, y = rides, color = .key)) +
+  facet_wrap(~parent_route, ncol = 3, nrow = 4, scales = 'free_y') +
+  geom_line() +
+  labs(x = 'Month', y = 'Rides') +
+  theme(legend.position = "bottom")
+
+
+```
+
+## Business Line 2/4 Forecasts: Northeast Corridor
+
+The Northeast Corridor business line contains 25 individual Amtrak stations and only 1 parent route.
+
+```{r put_nc_preds_df_together, include = FALSE, echo = FALSE}
+nc_preds_list <-list()
+
+for (i in 1:num_of_nc_stations){
+  nc_preds_list[[i]] <- df_nc_nest[[11]][[i]] |>
+    mutate(station_name = df_nc_nest$station_name[[i]])
+}
+
+nc_preds_df <- bind_rows(nc_preds_list)
+
+#----- Bring in the parent routes and business lines
+extra_info <- df |>
+  select(station_name, parent_route) |>
+  distinct()
+
+
+nc_routes <- inner_join(
+  nc_preds_df,
+  extra_info,
+  by = 'station_name'
+) |>
+  group_by(.index,.key, parent_route) |>
+  summarise(rides = sum(.value)) |>
+  arrange(parent_route,.index, .key)
+```
+
+## 
+
+```{r check_out_nc_predictions, echo = FALSE}
+ggplot(data = nc_routes, aes(x = .index, y = rides, color = .key)) +
+  facet_wrap(~parent_route, ncol = 1, scales = 'free_y') +
+  geom_line() + 
+  labs(x = 'Month', y = 'Rides') +
+  theme(legend.position = "bottom")
+
+```
+
+## Business Line 3/4 Forecasts: State Supported
+
+The State Supported business line contains 88 individual Amtrak stations and 16 parent routes.
+
+```{r put_ss_preds_df_together, include = FALSE, echo = FALSE}
+ss_preds_list <-list()
+
+for (i in 1:num_of_ss_stations){
+  ss_preds_list[[i]] <- df_ss_nest[[11]][[i]] |>
+    mutate(station_name = df_ss_nest$station_name[[i]])
+}
+
+ss_preds_df <- bind_rows(ss_preds_list)
+
+#----- Bring in the parent routes
+extra_info <- df |>
+  select(station_name, parent_route) |>
+  distinct()
+
+
+ss_routes <- inner_join(
+  ss_preds_df,
+  extra_info,
+  by = 'station_name'
+) |>
+  group_by(.index,.key, parent_route) |>
+  summarise(rides = sum(.value)) |>
+  arrange(parent_route,.index, .key)
+```
+
+```{r check_out_ss_predictions, echo = FALSE}
+ggplot(data = ss_routes, aes(x = .index, y = rides, color = .key)) +
+  facet_wrap(~parent_route, ncol = 4, nrow = 4, scales = 'free_y') +
+  geom_line() +
+  labs(x = 'Month', y = 'Rides') +
+  theme(legend.position = "bottom")
+
+```
+
+## Business Line 4/4 Forecasts: Other
+
+The Other business line contains 51 individual Amtrak stations and 4 parent routes.
+
+```{r put_ot_preds_df_together, include = FALSE, echo = FALSE}
+ot_preds_list <-list()
+
+for (i in 1:num_of_ot_stations){
+  ot_preds_list[[i]] <- df_ot_nest[[11]][[i]] |>
+    mutate(station_name = df_ot_nest$station_name[[i]])
+}
+
+ot_preds_df <- bind_rows(ot_preds_list)
+
+#----- Bring in the parent routes
+extra_info <- df |>
+  select(station_name, parent_route) |>
+  distinct()
+
+
+ot_routes <- inner_join(
+  ot_preds_df,
+  extra_info,
+  by = 'station_name'
+) |>
+  group_by(.index,.key, parent_route) |>
+  summarise(rides = sum(.value)) |>
+  arrange(parent_route,.index, .key)
+
+```
+
+```{r check_out_ot_predictions, echo = FALSE}
+ggplot(data = ot_routes, aes(x = .index, y = rides, color = .key)) +
+  facet_wrap(~parent_route, ncol = 2, nrow = 2, scales = 'free_y') +
+  geom_line() +
+  labs(x = 'Month', y = 'Rides') +
+  theme(legend.position = "bottom")
+```
+
+## Aggregated Forecasts
+
+These forecasts are the result of aggregated all of the parent routes within a business ine together.
+
+```{r aggregate_lines, include = FALSE, echo = FALSE}
+
+ld_routes <- ld_routes |> mutate(business_line = "Long Distance")
+nc_routes <- nc_routes |> mutate(business_line = "Northeast Corridor")
+ss_routes <- ss_routes |> mutate(business_line = "State Supported")
+ot_routes <- ot_routes |> mutate(business_line = "Other")
+
+
+business_lines_df <- rbind(
+  ld_routes,
+  nc_routes,
+  ss_routes,
+  ot_routes
+) |>
+  group_by(business_line, .index, .key) |>
+  summarise(rides = sum(rides))
+    
+
+
+```
+
+```{r aggregated_forecasts, echo = FALSE}
+
+ggplot(data = business_lines_df, aes(x = .index, y = rides, color = .key)) +
+  facet_wrap(~business_line, ncol = 2, nrow = 2, scales = 'free_y') +
+  geom_line() +
+  labs(x = 'Month', y = 'Rides') +
+  theme(legend.position = "bottom")
+
+```
+
+## Check Residuals vs. Predictions
+
+These plots compare the residuals vs. the predictions to assess if any unusual patterns exist.
+
+```{r setup_ld_residual_df, include = FALSE, echo = FALSE}
+
+ld_resids_list <-list()
+
+for (i in 1:num_of_ld_stations){
+  ld_resids_list[[i]] <- df_ld_nest[[10]][[i]][[5]][[1]] |>
+    mutate(station_name = df_ld_nest$station_name[[i]])
+}
+
+ld_resids_df = bind_rows(ld_resids_list) |>
+  group_by(station_name) |>
+  summarise(
+    preds = sum(.prediction),
+    resids = sum(.residuals)
+  ) |>
+  arrange(station_name)
+```
+
+```{r setup_nc_residual_df, include = FALSE, echo = FALSE}
+
+nc_resids_list <-list()
+
+for (i in 1:num_of_nc_stations){
+  nc_resids_list[[i]] <- df_nc_nest[[10]][[i]][[5]][[1]] |>
+    mutate(station_name = df_nc_nest$station_name[[i]])
+}
+
+nc_resids_df = bind_rows(nc_resids_list) |>
+  group_by(station_name) |>
+  summarise(
+    preds = sum(.prediction),
+    resids = sum(.residuals)
+  ) |>
+  arrange(station_name)
+
+```
+
+```{r setup_ss_residual_df, include = FALSE, echo = FALSE}
+
+ss_resids_list <-list()
+
+for (i in 1:num_of_ss_stations){
+  ss_resids_list[[i]] <- df_ss_nest[[10]][[i]][[5]][[1]] |>
+    mutate(station_name = df_ss_nest$station_name[[i]])
+}
+
+ss_resids_df = bind_rows(ss_resids_list) |>
+  group_by(station_name) |>
+  summarise(
+    preds = sum(.prediction),
+    resids = sum(.residuals)
+  ) |>
+  arrange(station_name)
+
+
+```
+
+```{r setup_ot_residual_df, include = FALSE, echo = FALSE}
+
+ot_resids_list <-list()
+
+for (i in 1:num_of_ot_stations){
+  ot_resids_list[[i]] <- df_ot_nest[[10]][[i]][[5]][[1]] |>
+    mutate(station_name = df_ot_nest$station_name[[i]])
+}
+
+ot_resids_df = bind_rows(ot_resids_list) |>
+  group_by(station_name) |>
+  summarise(
+    preds = sum(.prediction),
+    resids = sum(.residuals)
+  ) |>
+  arrange(station_name)
+
+
+```
+
+```{r combine_preds_v_resids_df, include = FALSE, echo = FALSE}
+
+ld_resids_df <- ld_resids_df |> mutate(business_line = "Long Distance")
+nc_resids_df <- nc_resids_df |> mutate(business_line = "Northeast Corridor")
+ss_resids_df <- ss_resids_df |> mutate(business_line = "State Supported")
+ot_resids_df <- ot_resids_df |> mutate(business_line = "Other")
+
+preds_vs_resids_df <- rbind(
+  ld_resids_df,
+  nc_resids_df,
+  ss_resids_df,
+  ot_resids_df
+)
+
+
+```
+
+```{r ld_resids_vs_preds, echo = FALSE}
+ggplot(data = preds_vs_resids_df,aes(x =preds, y =resids)) +
+  facet_wrap(~business_line, ncol = 2, nrow = 2, scales = 'free') +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = c(-100000,100), color = 'red') +
+  geom_rug(alpha = 0.25, color = 'blue') +
+  xlab('Predictions') + ylab('Residuals')
+
+```
+
+## Check Residuals vs. Time
+
+```{r create_residuals_vs_time_df, include = FALSE, echo = FALSE}
+
+ld_resids_df = bind_rows(ld_resids_list) |>
+  group_by(station_name, year_month) |>
+  summarise(
+    resids = sum(.residuals)
+  ) |>
+  arrange(station_name, year_month) |>
+  mutate(business_line = "Long Distance")
+
+nc_resids_df = bind_rows(nc_resids_list) |>
+  group_by(station_name, year_month) |>
+  summarise(
+    resids = sum(.residuals)
+  ) |>
+  arrange(station_name, year_month) |>
+  mutate(business_line = "Northeast Corridor")
+
+ss_resids_df = bind_rows(ss_resids_list) |>
+  group_by(station_name, year_month) |>
+  summarise(
+    resids = sum(.residuals)
+  ) |>
+  arrange(station_name, year_month) |>
+  mutate(business_line = "State Supported")
+
+ot_resids_df = bind_rows(ot_resids_list) |>
+  group_by(station_name, year_month) |>
+  summarise(
+    resids = sum(.residuals)
+  ) |>
+  arrange(station_name, year_month) |>
+  mutate(business_line = "Other")
+
+
+resids_vs_time_df <- rbind(
+  ld_resids_df,
+  nc_resids_df,
+  ss_resids_df,
+  ot_resids_df
+)
+
+
+```
+
+```{r plot_residuals_vs_time, echo = FALSE}
+
+ggplot(data = resids_vs_time_df,aes(x =year_month, y =resids)) +
+  facet_wrap(~business_line, ncol = 2, nrow = 2, scales = 'free') +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = c(-100000,100), color = 'red') +
+  geom_rug(alpha = 0.25, color = 'blue') +
+  xlab('Time') + ylab('Residuals')
+
+```
