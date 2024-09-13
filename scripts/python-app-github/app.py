@@ -50,6 +50,7 @@ for col in business_line_table.columns[1:]:
     business_line_table[col] = business_line_table[col].apply(format_millions)
 
 
+
 #----- Define style for different pages in app
 tabs_styles = {
     'height': '44px'
@@ -125,7 +126,7 @@ app.layout = html.Div([
                             options=[{'label': i, 'value': i} for i in bl_choices],
                             value=bl_choices[0]
                         ),
-                         dash_table.DataTable(
+                        dash_table.DataTable(
                             id='business_line_table',
                             columns=[{"name": i, "id": i} for i in business_line_table.columns],
                             data=business_line_table.to_dict('records'),
@@ -141,9 +142,24 @@ app.layout = html.Div([
                             style_header={
                                 'backgroundColor': '#333333', 
                                 'color': '#FFFFFF',  
-                                'fontWeight': 'bold',
-                            }
+                                'fontWeight': 'bold'
+                            },
+                            style_data_conditional=[
+                                {
+                                    'if': {
+                                        'column_id': [2023, 2024]
+                                    },
+                                    'backgroundColor': '#ff4d4d', 
+                                    'color': 'white'
+                                }
+                            ]
                         ),
+                        html.Label([
+                            html.Span('Actuals = Black', style={'color': 'grey'}),
+                            ' | ', 
+                            html.Span('Forecasts = Red', style={'color': '#ff4d4d'})
+                        ]),
+                        html.Br(),
                         html.Label(dcc.Markdown('''**Select a year: **'''),style={'color':'white'}),                        
                         dcc.Slider(
                             id='slider1',
@@ -213,7 +229,20 @@ def monthly_chart_parent_routes(dd1, slider1):
         x = 'month',
         y = 'rides',
         color = 'parent_route',
+         hover_data={
+            'month': True,  
+            'rides': ':,.0f', 
+            'parent_route': True,  
+            'year': True 
+        },
+        labels={
+            'month':'Month',
+            'rides':'Rides',
+            'parent_route':'Parent Route',
+            'year':'Year'
+        },
         title = f'Monthly Ridership Actuals for Top 5 Parent Routes of the {val1} business line in {val2}'
+
     ).update_layout(
         xaxis_title='Month', 
         yaxis_title='Rides' ,
@@ -222,11 +251,11 @@ def monthly_chart_parent_routes(dd1, slider1):
 
     )
 
-        # Check if the selected year is 2023 or 2024
+    #-----Check if the selected year is 2023 or 2024
     if slider1 in [2023, 2024]:
-        # Update line style to dashed for the selected years
+        #-----Update line style to dashed for the selected years
         line_chart.update_traces(line=dict(dash='dash'))
-        # Update title to 'Forecasts' for these years
+        #-----Update title to 'Forecasts' for these years
         line_chart.update_layout(title = f'Monthly Ridership Forecasts for Top 5 Parent Routes of the {val1} business line in {val2}')
 
     # Create a mapping of month numbers to month names
@@ -239,7 +268,17 @@ def monthly_chart_parent_routes(dd1, slider1):
     line_chart.update_xaxes(
         tickvals=list(month_names.keys()),  # Ensure these values match your x data
         ticktext=[month_names[i] for i in month_names.keys()]  # Use month names
+    ).update_traces(
+        mode='lines+markers'#,
+        # hovertemplate='<b>%{text}</b><br>' +
+        #               '<b>Month:</b> %{x}<br>' +
+        #               '<b>Rides:</b> %{y:,.0f}<br>' +  
+        #               '<b>Parent Route:</b> %{color}<br>' +
+        #               '<b>Year:</b> %{customdata[0]}<extra></extra>',
+        # text=parent_route_filtered_df['parent_route'],
+        # customdata=parent_route_filtered_df[['year']].values
     )
+
 
     return line_chart
 
