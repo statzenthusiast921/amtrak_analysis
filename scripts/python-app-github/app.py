@@ -27,6 +27,8 @@ amtrak_df['month'] = amtrak_df['month_date'].dt.month
 
 #-----Set up choices for dropdown menus
 bl_choices = sorted(amtrak_df['business_line'].unique())
+pr_choices = sorted(amtrak_df['business_line'].unique())
+
 
 #-----Business line table
 business_line_table = amtrak_df.groupby(['business_line', 'year'])['rides'].sum().reset_index()
@@ -49,7 +51,10 @@ def format_millions(x):
 for col in business_line_table.columns[1:]:
     business_line_table[col] = business_line_table[col].apply(format_millions)
 
-
+# Business Line --> Parent Route Dictionary
+df_for_dict = amtrak_df[['business_line','parent_route']]
+df_for_dict = df_for_dict.drop_duplicates(subset='parent_route',keep='first')
+business_line_parent_route_dict = df_for_dict.groupby('business_line')['parent_route'].apply(list).to_dict()
 
 #----- Define style for different pages in app
 tabs_styles = {
@@ -175,10 +180,29 @@ app.layout = html.Div([
                 ])
             ]
         ),
-        dcc.Tab(label='Page 3',value='tab-3',style=tab_style, selected_style=tab_selected_style,
+        dcc.Tab(label='Station Details',value='tab-3',style=tab_style, selected_style=tab_selected_style,
             children=[
                 dbc.Row([
                     dbc.Col([
+                        html.Label(dcc.Markdown('''**Select a business line: **'''),style={'color':'white'}),                        
+                        dcc.Dropdown(
+                            id='dropdown2',
+                            style={'color':'black'},
+                            options=[{'label': i, 'value': i} for i in bl_choices],
+                            value=bl_choices[0]
+                        )
+                    ], width =6),
+                    dbc.Col([
+                        html.Label(dcc.Markdown('''**Select a parent route: **'''),style={'color':'white'}),                        
+                        dcc.Dropdown(
+                            id='dropdown3',
+                            style={'color':'black'},
+                            options=[{'label': i, 'value': i} for i in pr_choices],
+                            value=pr_choices[0]
+                        )
+                    ], width = 6),
+                    dbc.Col([
+                        dcc.Graph(id = 'stn_fc_charts')
                     ])
                 ])
             ]
@@ -269,19 +293,74 @@ def monthly_chart_parent_routes(dd1, slider1):
         tickvals=list(month_names.keys()),  # Ensure these values match your x data
         ticktext=[month_names[i] for i in month_names.keys()]  # Use month names
     ).update_traces(
-        mode='lines+markers'#,
-        # hovertemplate='<b>%{text}</b><br>' +
-        #               '<b>Month:</b> %{x}<br>' +
-        #               '<b>Rides:</b> %{y:,.0f}<br>' +  
-        #               '<b>Parent Route:</b> %{color}<br>' +
-        #               '<b>Year:</b> %{customdata[0]}<extra></extra>',
-        # text=parent_route_filtered_df['parent_route'],
-        # customdata=parent_route_filtered_df[['year']].values
+        mode='lines+markers'
+    ).add_annotation(
+        x=2.5,  
+        y=parent_route_filtered_df['rides'].max(),  
+        text="Solid = Actuals | Dashed = Forecast",  
+        showarrow=False,  
+        xref="x", 
+        yref="y", 
+        font=dict(
+            size=12,
+            color="white"
+        ),
+        align="center",
+        bgcolor="rgba(0,0,0,0.5)",  # Semi-transparent background for better visibility
+        bordercolor="white"
     )
-
 
     return line_chart
 
+@app.callback(
+    Output('dropdown3', 'options'), #--> filter parent route
+    Output('dropdown3', 'value'),
+    Input('dropdown2', 'value') #--> choose business line
+)
+def set_parent_route_ptions(selected_business_line):
+    return [{'label': i, 'value': i} for i in business_line_parent_route_dict[selected_business_line]], business_line_parent_route_dict[selected_business_line][0]
+
+@app.callback(
+    Output('stn_fc_charts', 'figure'), #--> filter parent route
+    Input('dropdown3', 'value') #--> choose business line
+)
+def stn_fc_chart_many(dd3):
+    filtered_df = amtrak_df[amtrak_df['parent_route']==dd3]
+    #filtered_df = amtrak_df[amtrak_df['parent_route']=="Lake Shore"]
     
+    stn_rides_df = filtered_df.groupby(['station_name','month_date','key'])['rides'].sum().reset_index()
+
+    import math
+
+    # Number of unique station names
+    num_stations = stn_rides_df['station_name'].nunique()
+
+    # Calculate the optimal number of columns and rows
+    num_columns = math.ceil(math.sqrt(num_stations))
+    num_rows = math.ceil(num_stations / num_columns)
+
+    # Map stations to row and column indices
+    station_names = stn_rides_df['station_name'].unique()
+    station_mapping = {station: i for i, station in enumerate(station_names)}
+
+    # Map the station to grid positions
+    stn_rides_df['row'] = stn_rides_df['station_name'].map(lambda station: station_mapping[station] // num_columns + 1)
+    stn_rides_df['col'] = stn_rides_df['station_name'].map(lambda station: station_mapping[station] % num_columns + 1)
+
+
+
+    station_subplots = px.line(
+        stn_rides_df,
+        x="month_date",
+        y="rides",
+        color="key", 
+        facet_row="row",
+        facet_col="col"
+    ).update_yaxes(matches=None)  # Unlink y-axes so they vary independently
+
+    
+    return station_subplots
+
+
 if __name__=='__main__':
 	app.run_server()
