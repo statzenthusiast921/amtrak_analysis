@@ -97,12 +97,7 @@ app.layout = html.Div([
                         html.P(dcc.Markdown('''**What is the purpose of this dashboard?**'''),style={'color':'white'}),
                    ],style={'text-decoration': 'underline'}),
                    html.Div([
-                       html.P("This dashboard was created as a tool to: ",style={'color':'white'}),
-                       html.P("1.) Blah",style={'color':'white'}),
-                       html.P("2.) Blah",style={'color':'white'}),
-                       html.P("3.) Blah",style={'color':'white'}),
-
-
+                       html.P("This dashboard was created as a tool to visualize the results of my grouped Amtrak ridership forecasting in multiple ways.",style={'color':'white'}),
                        html.Br()
                    ]),
                    html.Div([
@@ -117,8 +112,7 @@ app.layout = html.Div([
                        html.P(dcc.Markdown('''**What are the limitations of this data?**'''),style={'color':'white'}),
                    ],style={'text-decoration': 'underline'}),
                    html.Div([
-                       html.P("1.) Blah.",style={'color':'white'}),
-                       html.P("2.) Blah.",style={'color':'white'})
+                       html.P("The data was only available at a yearly level.  I had to break the data out by month and adjust the peaks and valleys over the course in a year manually.",style={'color':'white'}),
                    ])
 
 
@@ -214,7 +208,38 @@ app.layout = html.Div([
             children=[
                 dbc.Row([
                     dbc.Col([
-                    ])
+                        html.Label(dcc.Markdown('''**Select a business line: **'''),style={'color':'white'}),                        
+                        dcc.Dropdown(
+                            id='dropdown4',
+                            style={'color':'black'},
+                            options=[{'label': i, 'value': i} for i in bl_choices],
+                            value=bl_choices[0]
+                        )
+                    ], width =6),
+                    dbc.Col([
+                        html.Label(dcc.Markdown('''**Select a parent route: **'''),style={'color':'white'}),                        
+                        dcc.Dropdown(
+                            id='dropdown5',
+                            style={'color':'black'},
+                            options=[{'label': i, 'value': i} for i in pr_choices],
+                            value=pr_choices[0]
+                        )
+                    ], width =6),
+                    dbc.Col([
+                        dcc.Slider(
+                            id='slider2',
+                            min=amtrak_df['year'].min(),
+                            max=amtrak_df['year'].max(),
+                            step=1,
+                            marks={year: str(year) for year in list(range(2016, 2025))},
+
+                            value=amtrak_df['year'].min()
+                        ),
+                    ]),
+                    dbc.Col([
+                        dcc.Graph(id='route_map')
+                    ], width = 12)
+
                 ])
             ]
         )
@@ -327,6 +352,17 @@ def set_parent_route_ptions(selected_business_line):
         return [], None
 
 
+@app.callback(
+    Output('dropdown5', 'options'), #--> filter parent route
+    Output('dropdown5', 'value'),
+    Input('dropdown4', 'value') #--> choose business line
+)
+def set_parent_route_ptions(selected_business_line):
+    if selected_business_line in business_line_parent_route_dict:
+        return [{'label': i, 'value': i} for i in business_line_parent_route_dict[selected_business_line]], business_line_parent_route_dict[selected_business_line][0]
+    else:
+        return [], None
+
 
 @app.callback(
     Output('stn_fc_charts', 'figure'),  #--> filter parent route
@@ -410,6 +446,32 @@ def stn_fc_chart_many(dd3):
 
     return fig
 
+
+#----- Tab 4: Map of Routes
+@app.callback(
+    Output('route_map','figure'),
+    Input('dropdown4','value'),
+    Input('dropdown5','value'),
+    Input('slider2', 'value')
+
+)
+def route_map(dd4, dd5, slider2):
+
+    filtered1 = amtrak_df[amtrak_df['business_line']==dd4]
+    filtered2 = filtered1[filtered1['parent_route']==dd5]
+    filtered3 = filtered2[filtered2['year']==slider2]
+
+    fig = px.scatter_mapbox(
+            filtered3, 
+            lat="lat", lon="lon", 
+            hover_name="station_name", 
+            color="rides",
+            size = "rides",
+            zoom=3,
+            mapbox_style="carto-positron"  
+
+    )
+    return fig
 
 
 if __name__=='__main__':
