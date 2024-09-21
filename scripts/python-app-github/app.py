@@ -7,6 +7,9 @@ from dash import dcc, html
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State
 from dash import dash_table
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import math
 
 #-----Read in and set up data
 amtrak_df = pd.read_csv('https://raw.githubusercontent.com/statzenthusiast921/amtrak_analysis/main/data/amtrak_preds_df.csv')
@@ -207,7 +210,7 @@ app.layout = html.Div([
                 ])
             ]
         ),
-        dcc.Tab(label='Page 4',value='tab-4',style=tab_style, selected_style=tab_selected_style,
+        dcc.Tab(label='Map',value='tab-4',style=tab_style, selected_style=tab_selected_style,
             children=[
                 dbc.Row([
                     dbc.Col([
@@ -253,7 +256,7 @@ def monthly_chart_parent_routes(dd1, slider1):
         x = 'month',
         y = 'rides',
         color = 'parent_route',
-         hover_data={
+        hover_data={
             'month': True,  
             'rides': ':,.0f', 
             'parent_route': True,  
@@ -318,48 +321,95 @@ def monthly_chart_parent_routes(dd1, slider1):
     Input('dropdown2', 'value') #--> choose business line
 )
 def set_parent_route_ptions(selected_business_line):
-    return [{'label': i, 'value': i} for i in business_line_parent_route_dict[selected_business_line]], business_line_parent_route_dict[selected_business_line][0]
+    if selected_business_line in business_line_parent_route_dict:
+        return [{'label': i, 'value': i} for i in business_line_parent_route_dict[selected_business_line]], business_line_parent_route_dict[selected_business_line][0]
+    else:
+        return [], None
+
+
 
 @app.callback(
-    Output('stn_fc_charts', 'figure'), #--> filter parent route
-    Input('dropdown3', 'value') #--> choose business line
+    Output('stn_fc_charts', 'figure'),  #--> filter parent route
+    Input('dropdown3', 'value')  #--> choose business line
 )
 def stn_fc_chart_many(dd3):
-    filtered_df = amtrak_df[amtrak_df['parent_route']==dd3]
-    #filtered_df = amtrak_df[amtrak_df['parent_route']=="Lake Shore"]
+    filtered_df = amtrak_df[amtrak_df['parent_route'] == dd3]
     
-    stn_rides_df = filtered_df.groupby(['station_name','month_date','key'])['rides'].sum().reset_index()
-
-    import math
+    stn_rides_df = filtered_df.groupby(['station_name', 'month_date', 'key'])['rides'].sum().reset_index()
 
     # Number of unique station names
-    num_stations = stn_rides_df['station_name'].nunique()
-
-    # Calculate the optimal number of columns and rows
-    num_columns = math.ceil(math.sqrt(num_stations))
-    num_rows = math.ceil(num_stations / num_columns)
-
-    # Map stations to row and column indices
     station_names = stn_rides_df['station_name'].unique()
-    station_mapping = {station: i for i, station in enumerate(station_names)}
+    num_stations = len(station_names)
 
-    # Map the station to grid positions
-    stn_rides_df['row'] = stn_rides_df['station_name'].map(lambda station: station_mapping[station] // num_columns + 1)
-    stn_rides_df['col'] = stn_rides_df['station_name'].map(lambda station: station_mapping[station] % num_columns + 1)
+    # Create a color map for the keys
+    unique_keys = stn_rides_df['key'].unique()
+    colors = px.colors.qualitative.Plotly  # Choose a color palette
+    color_map = {key: colors[i % len(colors)] for i, key in enumerate(unique_keys)}
 
+    # Set a maximum number of columns and rows for subplots
+    max_columns = 4
+    num_columns = min(max_columns, int(num_stations ** 0.5))
+    num_rows = (num_stations + num_columns - 1) // num_columns  # Ceiling division
 
+    # Set a fixed height for each subplot
+    subplot_height = 200  # Adjust this value as needed
+    total_height = subplot_height * num_rows
 
-    station_subplots = px.line(
-        stn_rides_df,
-        x="month_date",
-        y="rides",
-        color="key", 
-        facet_row="row",
-        facet_col="col"
-    ).update_yaxes(matches=None)  # Unlink y-axes so they vary independently
+    # Create a subplot figure
+    fig = make_subplots(rows=num_rows, cols=num_columns, subplot_titles=station_names, vertical_spacing=0.1)
 
-    
-    return station_subplots
+    # Create traces for each station
+    for i, station in enumerate(station_names):
+        station_data = stn_rides_df[stn_rides_df['station_name'] == station]
+        
+        # Get row and column for the subplot
+        row = i // num_columns + 1
+        col = i % num_columns + 1
+        
+        # Add a trace for each key within the station
+        for key in station_data['key'].unique():
+            key_data = station_data[station_data['key'] == key]
+            line_color = color_map[key]
+
+            # Determine the name based on whether it's actual or forecast
+            if key == 'actual_key_identifier':  # Replace with the actual identifier for actuals
+                trace_name = 'Actual'
+            elif key == 'forecast_key_identifier':  # Replace with the actual identifier for forecasts
+                trace_name = 'Forecast'
+            else:
+                trace_name = ""  # Skip adding a name for any other key
+            
+            # Add trace
+            fig.add_trace(
+                go.Scatter(
+                    x=key_data['month_date'],
+                    y=key_data['rides'],
+                    mode='lines+markers',
+                    hovertemplate='Station: ' + station + '<br>Rides: %{y}<br>Mon-Yr: %{x}<br>Key: %{customdata}<extra></extra>',
+
+                    customdata=[key] * len(key_data),  # Pass the key value as customdata
+                    name=trace_name,
+                    line=dict(color=line_color)
+                ),
+                row=row,
+                col=col
+            )
+
+    # Update layout and axes
+    fig.update_layout(
+        title_text=f"Ridership Trends for {dd3} Parent Route",
+        title_x=0.5,
+        #height=800,
+        height=total_height,  # Use the total height calculated
+
+        showlegend=False
+    )
+
+    # Hide x-axis labels
+    fig.update_xaxes(title_text=None)
+
+    return fig
+
 
 
 if __name__=='__main__':
