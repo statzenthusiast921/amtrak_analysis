@@ -59,6 +59,10 @@ df_for_dict = amtrak_df[['business_line','parent_route']]
 df_for_dict = df_for_dict.drop_duplicates(subset='parent_route',keep='first')
 business_line_parent_route_dict = df_for_dict.groupby('business_line')['parent_route'].apply(list).to_dict()
 
+#----- Station Table
+station_table = amtrak_df[['station_name','rides']]
+
+
 #----- Define style for different pages in app
 tabs_styles = {
     'height': '44px'
@@ -235,10 +239,24 @@ app.layout = html.Div([
 
                             value=amtrak_df['year'].min()
                         ),
-                    ]),
+                    ], width = 12),
                     dbc.Col([
                         dcc.Graph(id='route_map')
-                    ], width = 12)
+                    ], width = 6),
+                    dbc.Col([
+                        dash_table.DataTable(
+                            id='station_table',
+                            columns=[{"name": i, "id": i} for i in station_table.columns],
+                            data=station_table.to_dict('records'),
+                            style_table={
+                                'overflowX': 'auto',
+                                'overflowY': 'auto',
+                                'backgroundColor': '#000000' ,
+                                'maxHeight': '450px'
+
+                            }
+                        )
+                    ], width = 6)
 
                 ])
             ]
@@ -461,18 +479,62 @@ def route_map(dd4, dd5, slider2):
     filtered2 = filtered1[filtered1['parent_route']==dd5]
     filtered3 = filtered2[filtered2['year']==slider2]
 
+    df_for_plot = filtered3.groupby(['business_line','parent_route','station_name','year','lat','lon'])['rides'].sum().reset_index()
+
+
+
     fig = px.scatter_mapbox(
-            filtered3, 
-            lat="lat", lon="lon", 
-            hover_name="station_name", 
-            color="rides",
-            size = "rides",
-            zoom=3,
-            mapbox_style="carto-positron"  
+        df_for_plot, 
+        lat="lat", lon="lon", 
+        hover_name="station_name", 
+        color="rides",
+        size = "rides",
+        zoom=4,
+        mapbox_style="carto-positron",
+        hover_data={
+            'business_line': True,
+            'parent_route' : True,
+            'station_name' : True,
+            'year': True ,
+            'rides': ':,.0f', 
+            'lat': False,  
+            'lon': False
+ 
+        },
+        labels={
+            'business_line':'Business Line',
+            'parent_route':'Parent Route',
+            'station_name':'Station Name',
+            'year':'Year',
+            'rides':'Rides'
+        },
 
     )
     return fig
 
+
+@app.callback(
+    Output('station_table','data'),
+    Input('dropdown4','value'),
+    Input('dropdown5','value'),
+    Input('slider2', 'value')
+
+)
+def update_station_table(dd4, dd5, slider2):
+
+    filtered_df = amtrak_df[
+        (amtrak_df['business_line'] == dd4) &
+        (amtrak_df['parent_route'] == dd5) &
+        (amtrak_df['year'] == slider2)
+    ]
+
+    table_final = filtered_df[['station_name','rides']]
+    table_final = table_final.groupby(['station_name'])['rides'].sum().reset_index()
+    table_final = table_final.sort_values(by = 'rides', ascending = False)
+
+
+
+    return table_final.to_dict('records')
 
 if __name__=='__main__':
 	app.run_server()
