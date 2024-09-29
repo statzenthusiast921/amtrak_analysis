@@ -10,8 +10,11 @@ The purpose of this project was to:
 
 ### Data
 
-The data used for this analysis was scraped from  [here](https://www.railpassengers.org/resources/ridership-statistics/) page.  The scraping proved to be a little difficult so there was more time early on spent on validating the data.
+The data used for this analysis was scraped from  [here](https://www.railpassengers.org/resources/ridership-statistics/) page.
 
 
 ### Challenges
-- The main challenge came from validating the data and the amount of time required to sufficiently check all the numbers.
+
+- The data was only available at a yearly grain making a forecast catching seasonality difficult.  To fix this issue, I split the data out to a monthly grain including different ramp up and down rates depending on the time of year.
+- Stations were often included in multiple cross-country routes making comparisons a little difficult.  If I were to compare routes, I didn't want any one station counting more than once.  Thus, for stations that were associated with multiple routes, I assigned them to a 'parent route' that had the largest ridership overall for any of the associated routes.
+
