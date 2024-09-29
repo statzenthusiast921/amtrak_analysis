@@ -115,8 +115,8 @@ app.layout = html.Div([
                        html.P(dcc.Markdown('''**What are the limitations of this data?**'''),style={'color':'white'}),
                    ],style={'text-decoration': 'underline'}),
                    html.Div([
-                       html.P("1.) The data was only available at a yearly level making a forecast catching seasonality not impossible, but difficult.  To fix this issue, I split the data out to a monthly grain including different ramp up and ramp down rates depending on the time of year.",style={'color':'white'}),
-                       html.P("2.) Stations often were included in multiple cross-country routes making comparisons a little difficult.  If I were to compare routes, I didn't want any one station counting more than once.  Thus, for stations that were associated with multiple routes, I assigned them to a 'parent route' that had the largest ridership overall for any of the associated routes.",style={'color':'white'}),
+                       html.P("1.) The data was only available at a yearly grain making a forecast catching seasonality difficult.  To fix this issue, I split the data out to a monthly grain including different ramp up and ramp down rates depending on the time of year.",style={'color':'white'}),
+                       html.P("2.) Stations were often included in multiple cross-country routes making comparisons a little difficult.  If I were to compare routes, I didn't want any one station counting more than once.  Thus, for stations that were associated with multiple routes, I assigned them to a 'parent route' that had the largest ridership overall for any of the associated routes.",style={'color':'white'}),
 
                    ])
 
