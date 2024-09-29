@@ -10,7 +10,7 @@ The purpose of this project was to:
 
 ### Data
 
-The data used for this analysis was scraped from  [here](https://www.railpassengers.org/resources/ridership-statistics/) page.
+The data used for this analysis was scraped from [here](https://www.railpassengers.org/resources/ridership-statistics/).
 
 ### Application
 - Coming soon
