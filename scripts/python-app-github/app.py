@@ -50,18 +50,17 @@ def format_millions(x):
         return ''
     return f'{x / 1e6:.2f} M'
 
-#-----Apply formatting to all columns except the first
+#----- Apply formatting to all columns except the first
 for col in business_line_table.columns[1:]:
     business_line_table[col] = business_line_table[col].apply(format_millions)
 
-# Business Line --> Parent Route Dictionary
+#----- Business Line --> Parent Route Dictionary
 df_for_dict = amtrak_df[['business_line','parent_route']]
 df_for_dict = df_for_dict.drop_duplicates(subset='parent_route',keep='first')
 business_line_parent_route_dict = df_for_dict.groupby('business_line')['parent_route'].apply(list).to_dict()
 
 #----- Station Table
 station_table = amtrak_df[['station_name','rides']]
-
 
 #----- Define style for different pages in app
 tabs_styles = {
@@ -116,7 +115,9 @@ app.layout = html.Div([
                        html.P(dcc.Markdown('''**What are the limitations of this data?**'''),style={'color':'white'}),
                    ],style={'text-decoration': 'underline'}),
                    html.Div([
-                       html.P("The data was only available at a yearly level.  I had to break the data out by month and adjust the peaks and valleys over the course in a year manually.",style={'color':'white'}),
+                       html.P("1.) The data was only available at a yearly level making a forecast catching seasonality not impossible, but difficult.  To fix this issue, I split the data out to a monthly grain including different ramp up and ramp down rates depending on the time of year.",style={'color':'white'}),
+                       html.P("2.) Stations often were included in multiple cross-country routes making comparisons a little difficult.  If I were to compare routes, I didn't want any one station counting more than once.  Thus, for stations that were associated with multiple routes, I assigned them to a 'parent route' that had the largest ridership overall for any of the associated routes.",style={'color':'white'}),
+
                    ])
 
 
@@ -208,7 +209,7 @@ app.layout = html.Div([
                 ])
             ]
         ),
-        dcc.Tab(label='Map',value='tab-4',style=tab_style, selected_style=tab_selected_style,
+        dcc.Tab(label='Geographic Details',value='tab-4',style=tab_style, selected_style=tab_selected_style,
             children=[
                 dbc.Row([
                     dbc.Col([
@@ -230,6 +231,7 @@ app.layout = html.Div([
                         )
                     ], width =6),
                     dbc.Col([
+                        html.Label(dcc.Markdown('''**Select a year: **'''),style={'color':'white'}),                        
                         dcc.Slider(
                             id='slider2',
                             min=amtrak_df['year'].min(),
@@ -240,13 +242,26 @@ app.layout = html.Div([
                             value=amtrak_df['year'].min()
                         ),
                     ], width = 12),
+                    html.Label([
+                            html.Span('Actuals = Black Table', style={'color': 'grey', 'float':'right'}),
+                            html.Span('  ', style = {'color': 'white', 'float':'right'}), 
+
+                            html.Span(' | ', style = {'color': 'white', 'float':'right'}), 
+                            html.Span('  ', style = {'color': 'white', 'float':'right'}), 
+
+                            html.Span('Forecasts = Red Table', style={'color': '#ff4d4d', 'float':'right'})
+
+                    ]),
                     dbc.Col([
                         dcc.Graph(id='route_map')
                     ], width = 6),
                     dbc.Col([
                         dash_table.DataTable(
                             id='station_table',
-                            columns=[{"name": i, "id": i} for i in station_table.columns],
+                            columns=[
+                                {'name': 'Station Name', 'id': 'station_name'},
+                                {'name': 'Rides', 'id': 'rides'}
+                             ],
                             data=station_table.to_dict('records'),
                             style_table={
                                 'overflowX': 'auto',
@@ -254,6 +269,10 @@ app.layout = html.Div([
                                 'backgroundColor': '#000000' ,
                                 'maxHeight': '450px'
 
+                            },
+                            style_data={
+                                'backgroundColor': 'black', 
+                                'color': 'white'  
                             }
                         )
                     ], width = 6)
@@ -264,7 +283,7 @@ app.layout = html.Div([
     ])
 ])
 
-#Tab #1: FC Table --> Business Line
+#----- Tab #1: FC Table --> Business Line
 @app.callback(
     Output('business_line_table','data'),
     Input('dropdown1','value')
@@ -275,7 +294,7 @@ def bl_fc_table(dd1):
     return bl_table_filtered.to_dict('records')
 
 
-#Tab #1: Top 5 Parent Routes Monthly Chart by Year 
+#---- Tab #1: Top 5 Parent Routes Monthly Chart by Year 
 @app.callback(
     Output('parent_route_monthly_charts','figure'),
     Input('dropdown1','value'),
@@ -358,6 +377,7 @@ def monthly_chart_parent_routes(dd1, slider1):
 
     return line_chart
 
+#----- Configure dependent dropdowns for Tab #3
 @app.callback(
     Output('dropdown3', 'options'), #--> filter parent route
     Output('dropdown3', 'value'),
@@ -369,7 +389,7 @@ def set_parent_route_ptions(selected_business_line):
     else:
         return [], None
 
-
+#----- Configure dependent dropdowns for Tab #4
 @app.callback(
     Output('dropdown5', 'options'), #--> filter parent route
     Output('dropdown5', 'value'),
@@ -381,59 +401,59 @@ def set_parent_route_ptions(selected_business_line):
     else:
         return [], None
 
-
+#----- Tab #3: Subplots of forecast vs. actuals
 @app.callback(
-    Output('stn_fc_charts', 'figure'),  #--> filter parent route
-    Input('dropdown3', 'value')  #--> choose business line
+    Output('stn_fc_charts', 'figure'), 
+    Input('dropdown3', 'value') 
 )
 def stn_fc_chart_many(dd3):
     filtered_df = amtrak_df[amtrak_df['parent_route'] == dd3]
     
     stn_rides_df = filtered_df.groupby(['station_name', 'month_date', 'key'])['rides'].sum().reset_index()
 
-    # Number of unique station names
+    #----- Number of unique station names
     station_names = stn_rides_df['station_name'].unique()
     num_stations = len(station_names)
 
-    # Create a color map for the keys
+    #----- Create a color map for the keys
     unique_keys = stn_rides_df['key'].unique()
-    colors = px.colors.qualitative.Plotly  # Choose a color palette
+    colors = px.colors.qualitative.Plotly  
     color_map = {key: colors[i % len(colors)] for i, key in enumerate(unique_keys)}
 
-    # Set a maximum number of columns and rows for subplots
+    #----- Set a maximum number of columns and rows for subplots
     max_columns = 4
     num_columns = min(max_columns, int(num_stations ** 0.5))
-    num_rows = (num_stations + num_columns - 1) // num_columns  # Ceiling division
+    num_rows = (num_stations + num_columns - 1) // num_columns  
 
-    # Set a fixed height for each subplot
-    subplot_height = 200  # Adjust this value as needed
+    #----- Set a fixed height for each subplot
+    subplot_height = 200 
     total_height = subplot_height * num_rows
 
-    # Create a subplot figure
+    #----- Create a subplot figure
     fig = make_subplots(rows=num_rows, cols=num_columns, subplot_titles=station_names, vertical_spacing=0.1)
 
-    # Create traces for each station
+    #----- Create traces for each station
     for i, station in enumerate(station_names):
         station_data = stn_rides_df[stn_rides_df['station_name'] == station]
         
-        # Get row and column for the subplot
+        #----- Get row and column for the subplot
         row = i // num_columns + 1
         col = i % num_columns + 1
         
-        # Add a trace for each key within the station
+        #----- Add a trace for each key within the station
         for key in station_data['key'].unique():
             key_data = station_data[station_data['key'] == key]
             line_color = color_map[key]
 
-            # Determine the name based on whether it's actual or forecast
-            if key == 'actual_key_identifier':  # Replace with the actual identifier for actuals
+            #------ Determine the name based on whether it's actual or forecast
+            if key == 'actual_key_identifier':  
                 trace_name = 'Actual'
-            elif key == 'forecast_key_identifier':  # Replace with the actual identifier for forecasts
+            elif key == 'forecast_key_identifier':  
                 trace_name = 'Forecast'
             else:
-                trace_name = ""  # Skip adding a name for any other key
+                trace_name = ""  
             
-            # Add trace
+            #----- Add trace
             fig.add_trace(
                 go.Scatter(
                     x=key_data['month_date'],
@@ -441,7 +461,7 @@ def stn_fc_chart_many(dd3):
                     mode='lines+markers',
                     hovertemplate='Station: ' + station + '<br>Rides: %{y}<br>Mon-Yr: %{x}<br>Key: %{customdata}<extra></extra>',
 
-                    customdata=[key] * len(key_data),  # Pass the key value as customdata
+                    customdata=[key] * len(key_data), 
                     name=trace_name,
                     line=dict(color=line_color)
                 ),
@@ -449,17 +469,16 @@ def stn_fc_chart_many(dd3):
                 col=col
             )
 
-    # Update layout and axes
+    #----- Update layout and axes
     fig.update_layout(
         title_text=f"Ridership Trends for {dd3} Parent Route",
         title_x=0.5,
-        #height=800,
-        height=total_height,  # Use the total height calculated
-
-        showlegend=False
+        height=total_height, 
+        showlegend=False,
+        plot_bgcolor='black', 
+        paper_bgcolor='black', 
+        font_color='white' 
     )
-
-    # Hide x-axis labels
     fig.update_xaxes(title_text=None)
 
     return fig
@@ -481,8 +500,6 @@ def route_map(dd4, dd5, slider2):
 
     df_for_plot = filtered3.groupby(['business_line','parent_route','station_name','year','lat','lon'])['rides'].sum().reset_index()
 
-
-
     fig = px.scatter_mapbox(
         df_for_plot, 
         lat="lat", lon="lon", 
@@ -490,7 +507,9 @@ def route_map(dd4, dd5, slider2):
         color="rides",
         size = "rides",
         zoom=4,
-        mapbox_style="carto-positron",
+        mapbox_style ='carto-positron',
+        #color_continuous_scale="pinkyl",
+
         hover_data={
             'business_line': True,
             'parent_route' : True,
@@ -499,7 +518,6 @@ def route_map(dd4, dd5, slider2):
             'rides': ':,.0f', 
             'lat': False,  
             'lon': False
- 
         },
         labels={
             'business_line':'Business Line',
@@ -507,18 +525,22 @@ def route_map(dd4, dd5, slider2):
             'station_name':'Station Name',
             'year':'Year',
             'rides':'Rides'
-        },
-
+        }
+    )
+    fig.update_layout(
+        margin=dict(l=0, r=0, t=0, b=0),
+        legend=dict(
+            bgcolor='rgba(0, 0, 0, 0)'
+        )
     )
     return fig
 
-
+#----- Tab #4: Station table per year per business line/parent route
 @app.callback(
     Output('station_table','data'),
     Input('dropdown4','value'),
     Input('dropdown5','value'),
     Input('slider2', 'value')
-
 )
 def update_station_table(dd4, dd5, slider2):
 
@@ -531,10 +553,40 @@ def update_station_table(dd4, dd5, slider2):
     table_final = filtered_df[['station_name','rides']]
     table_final = table_final.groupby(['station_name'])['rides'].sum().reset_index()
     table_final = table_final.sort_values(by = 'rides', ascending = False)
+   
+    #----- Formatting function
+    def format_rides(value):
+        if value >= 1000:
+            return '{:,.0f}K'.format(value / 1000)
+        return '{:,.0f}'.format(value)
 
-
+    #----- Update data with formatted 'Rides' column
+    table_final['rides'] = pd.to_numeric(table_final['rides'], errors='coerce')
+    table_final['rides'] = table_final['rides'].apply(format_rides)
 
     return table_final.to_dict('records')
+
+#----- Tab #4: Make table either black or red depending on the year selected
+@app.callback(
+    Output('station_table', 'style_data_conditional'),
+    Input('slider2', 'value')
+)
+def update_table_style(selected_year):
+    if selected_year in [2023, 2024]:
+        return [
+            {
+                'if': {'row_index': 'odd'},
+                'backgroundColor': 'red',
+                'color': 'white'  
+            },
+            {
+                'if': {'row_index': 'even'},
+                'backgroundColor': 'red',
+                'color': 'white'  
+            }
+        ]
+    else:
+        return []
 
 if __name__=='__main__':
 	app.run_server()
