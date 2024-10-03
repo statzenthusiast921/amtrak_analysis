@@ -22,7 +22,8 @@ dash-html-components==2.0.0
 dash-table==5.0.0
 dateparser==1.1.5
 docker==4.2.2
-Flask==3.0.3
+Flask==2.0.3
+
 fonttools==4.53.1
 idna==3.8
 importlib_resources==6.4.4
