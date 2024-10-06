@@ -21,6 +21,8 @@ dateparser==1.1.5
 docker==4.2.2
 Flask==2.0.2
 fonttools==4.53.1
+gunicorn==20.1.0
+
 idna==3.8
 importlib_resources==6.4.4
 itsdangerous==2.2.0
