@@ -1,7 +1,4 @@
 arrow==1.2.3
-aws-lambda-builders==1.23.1
-aws-sam-cli==1.67.0
-aws-sam-translator==1.55.0
 binaryornot==0.4.4
 blinker==1.8.2
 boto3==1.26.42
