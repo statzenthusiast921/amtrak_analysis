@@ -13,7 +13,7 @@ The purpose of this project was to:
 The data used for this analysis was scraped from [here](https://www.railpassengers.org/resources/ridership-statistics/).
 
 ### Application
-- [Click here to view app](https://amtrak-fc-analysis-jz-app.onrender.com/)
+- Click [here](https://amtrak-fc-analysis-jz-app.onrender.com/) to view app
 
 ### Challenges
 
